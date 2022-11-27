@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.Remoting.Contexts;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,8 +15,24 @@ namespace demoForPortConsole472
         private static SerialPort _serialPort = null;
         private static bool _continue;
 
+        private static void PortDataAdapter_MessageReceived(object sender, PortMessageEventArgs e)
+        {
+            
+        }
+
         static void Main(string[] args)
         {
+            var options = new PortDataAdapterOptions
+            {
+                PortName = "COM1"
+            };
+            IPortDataAdapter portDataAdapter = new PortDataAdapter();
+            portDataAdapter.Config(options);
+            portDataAdapter.MessageReceived += PortDataAdapter_MessageReceived;
+            portDataAdapter.Open();
+            portDataAdapter.Send("haha");
+            portDataAdapter.Close();
+
             _serialPort = new SerialPort();
             var defaultPortName = _serialPort.PortName;
             Console.WriteLine($"默认端口:{defaultPortName}");
@@ -58,7 +75,7 @@ namespace demoForPortConsole472
             var defaultReadTimeout = _serialPort.ReadTimeout;
             Console.WriteLine($"默认读取操作未完成时发生超时之前的毫秒数:{defaultReadTimeout}");
 
-            // 设置写操作的超时时间(毫秒数)
+            // 设置读操作的超时时间(毫秒数)
             _serialPort.ReadTimeout = 500;
 
             var defaultWriteTimeout = _serialPort.WriteTimeout;
@@ -84,10 +101,33 @@ namespace demoForPortConsole472
             readThread.Start();
             _serialPort.WriteLine("message");
 
+            var contents = new byte[1024];
+            SendMessage(contents, 0, contents.Length);
+
             _serialPort.Close();
             Console.WriteLine($"串口是否开启:{_serialPort.IsOpen}，端口名称:{_serialPort.PortName}");
 
             Console.ReadLine();
+        }
+
+
+
+        private static Thread _readThread = null;
+
+        private static void Open()
+        {
+            _serialPort.Open();
+            Console.WriteLine($"串口是否开启:{_serialPort.IsOpen}，端口名称:{_serialPort.PortName}");
+
+            _readThread = new Thread(Read);
+            _readThread.IsBackground = true;
+            _readThread.Start();
+            Console.WriteLine($"端口名称:{_serialPort.PortName}，消息监听开始");
+        }
+
+        private static void SendMessage(byte[] contents, int offset, int length)
+        {
+            _serialPort.Write(contents, offset, length);
         }
 
         private static void SerialPort_PinChanged(object sender, SerialPinChangedEventArgs e)
